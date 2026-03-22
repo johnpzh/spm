@@ -11,7 +11,7 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List, Tuple, Any
 from .workflow_config import (
-    WF_PARAMS, STORAGE_LIST, TARGET_TASKS, 
+    WF_PARAMS, STORAGE_LIST, TARGET_TASKS,
     TEST_CONFIGS, DEFAULT_WF, OP_DICT, MULTI_NODES
 )
 
@@ -45,11 +45,11 @@ def decode_store_code(store_code: int) -> str:
 def bytes_to_mb(file_size: str | int | float) -> float:
     """
     Convert a file size from bytes to megabytes (MB).
-    
+
     Parameters:
-    - file_size (str, int, or float): The file size in bytes (as an int/float) 
+    - file_size (str, int, or float): The file size in bytes (as an int/float)
       or a string representation with size and unit (e.g., "1024 KiB").
-      
+
     Returns:
     - float: The file size in MB.
     """
@@ -57,7 +57,7 @@ def bytes_to_mb(file_size: str | int | float) -> float:
     if isinstance(file_size, str):
         size_num, size_unit = file_size.split()
         size_num = float(size_num)
-        
+
         # Convert size to MB based on the unit
         if size_unit == "Bytes" or size_unit == "B":
             return size_num / (1024 ** 2)  # Convert bytes to MB
@@ -84,7 +84,7 @@ def is_sequential(numbers: List[int]) -> bool:
         return False
 
     sorted_numbers = sorted(numbers)  # Sort the numbers
-    return all(sorted_numbers[i] + 1 == sorted_numbers[i + 1] 
+    return all(sorted_numbers[i] + 1 == sorted_numbers[i + 1]
                for i in range(len(sorted_numbers) - 1))
 
 
@@ -96,7 +96,7 @@ def get_stat_file_pids(all_files: List[str]) -> List[str]:
         filename = os.path.basename(blk_file)
         # replace ".local" for now
         filename = filename.replace(".local", "")
-        
+
         # Split filename by '.'
         parts = filename.split('.')
         if len(parts) >= 3:
@@ -108,18 +108,19 @@ def get_stat_file_pids(all_files: List[str]) -> List[str]:
     return sorted(target_tasks)
 
 
-def add_stat_to_df(trial_folder: str, monitor_timer_stat_io: List, 
-                   operation: int, fname: str, task_pid: str, 
+def add_stat_to_df(trial_folder: str, monitor_timer_stat_io: List,
+                   operation: int, fname: str, task_pid: str,
                    store_code: int, debug: bool = False) -> Dict[str, Any]:
     """Add statistics to DataFrame from datalife monitor data."""
     # Process the file name
     fname = fname.replace(".local", ".")
-    fileName = ".".join(fname.split(".")[:-4])  # Remove last 4 extensions
+    # fileName = ".".join(fname.split(".")[:-4])  # Remove last 4 extensions
+    fileName = ".".join(fname.split(".")[:-3])  # Remove last 3 extensions, e.g., chr1n.tar.gz.148914-dc283.r_blk_trace.json
     fileName = os.path.basename(fileName)      # Keep only the basename
-    
+
     if monitor_timer_stat_io[1] == 0:
         monitor_timer_stat_io[1] = 1  # at least 1 operation if has I/O size
-    
+
     # Initialize statistics
     tmp_write_stat = {
         'aggregateFilesizeMB': bytes_to_mb(monitor_timer_stat_io[2]),
@@ -132,21 +133,21 @@ def add_stat_to_df(trial_folder: str, monitor_timer_stat_io: List,
         'taskPID': task_pid,
         'fileName': fileName,
     }
-    
+
     if tmp_write_stat['totalTime'] > 100:
         print(f"Recorded large totalTime[{monitor_timer_stat_io}] from task_pid[{task_pid}] fileName[{fileName}]")
-    
+
     # Determine operation type
     op = get_operation_type(operation)
-    
+
     # Ensure the trial folder exists
     if not os.path.exists(trial_folder):
         print(f"Trial folder does not exist: {trial_folder}")
         return tmp_write_stat
-    
+
     # List all files in the trial folder
     all_files = os.listdir(trial_folder)
-    
+
     # Find matching files using patterns with and without ".local"
     candidate_patterns = [
         f"{fileName}.{task_pid}.local.{op}_blk_trace.json",
@@ -157,7 +158,7 @@ def add_stat_to_df(trial_folder: str, monitor_timer_stat_io: List,
         for file in all_files
         if any(pat in file for pat in candidate_patterns)
     ]
-    
+
     # Process matching files to determine write pattern and capture optional task_name
     write_pattern = 0  # 0: seq, 1: rand
     detected_task_name = None
@@ -170,7 +171,7 @@ def add_stat_to_df(trial_folder: str, monitor_timer_stat_io: List,
                 tn = w_blk_trace_data.get('task_name')
                 if isinstance(tn, str) and tn.strip():
                     detected_task_name = tn.strip()
-                
+
                 # Validate blk_list length
                 if len(blk_list) >= 4:
                     if blk_list[3] == -2:
@@ -184,16 +185,16 @@ def add_stat_to_df(trial_folder: str, monitor_timer_stat_io: List,
         except Exception as e:
             if debug:
                 print(f"Error processing file {matching_file}: {e}")
-    
+
     # Update statistics
     tmp_write_stat['randomOffset'] = write_pattern
     if detected_task_name:
         tmp_write_stat['taskName'] = detected_task_name
-    
+
     return tmp_write_stat
 
 
-def get_wf_result_df(tests: str, wf_params: List[str], target_tasks: List[str], 
+def get_wf_result_df(tests: str, wf_params: List[str], target_tasks: List[str],
                     storage_type: str = "ssd", debug: bool = False, csv_filename: str = "workflow_data.csv") -> pd.DataFrame:
     """Get workflow result DataFrame from test data."""
     wf_df = pd.DataFrame(columns=wf_params)
@@ -204,7 +205,7 @@ def get_wf_result_df(tests: str, wf_params: List[str], target_tasks: List[str],
         folder for folder in glob.glob(f"{tests}/*")
         if folder.endswith(("t1", "t2", "t3"))
     ]
-    
+
     if debug:
         print(f"Trial folders: {wf_trial_folders}")
 
@@ -213,7 +214,7 @@ def get_wf_result_df(tests: str, wf_params: List[str], target_tasks: List[str],
     for trial_folder in wf_trial_folders:
         blk_files = glob.glob(f"{trial_folder}/*_blk_trace.json")
         datalife_monitor = glob.glob(f"{trial_folder}/*.datalife.json")
-        
+
         # Check if this is a template workflow with pre-processed CSV data
         workflow_csv = os.path.join(trial_folder, csv_filename)
         if len(blk_files) == 0 and len(datalife_monitor) == 0 and os.path.exists(workflow_csv):
@@ -238,7 +239,7 @@ def get_wf_result_df(tests: str, wf_params: List[str], target_tasks: List[str],
             except Exception as e:
                 if debug:
                     print(f"Error loading CSV: {e}")
-        
+
         target_tasks = get_stat_file_pids(blk_files)
         if debug:
             print(f"blk_files count: {len(blk_files)}")
@@ -265,7 +266,7 @@ def get_wf_result_df(tests: str, wf_params: List[str], target_tasks: List[str],
             for fname in [f for f in blk_files if f".{task_pid}." in f]:
                 op_type = "read" if ".r_blk_trace." in fname else "write"
                 monitor_stat = monitor_timer_stat[op_type]
-                
+
                 # Extra check if monitor_stat has zero value, use value from the other op_type
                 for i in range(len(monitor_stat)):
                     if monitor_stat[i] == 0:
@@ -275,7 +276,7 @@ def get_wf_result_df(tests: str, wf_params: List[str], target_tasks: List[str],
                             monitor_stat[i] = monitor_timer_stat["read"][i]
 
                 tmp_stat = add_stat_to_df(
-                    trial_folder, monitor_stat, 
+                    trial_folder, monitor_stat,
                     1 if op_type == "read" else 0,
                     fname, task_pid, store_code, debug
                 )
@@ -289,19 +290,19 @@ def get_wf_result_df(tests: str, wf_params: List[str], target_tasks: List[str],
     return wf_df
 
 
-def get_test_folder_dfs(test_folders: List[str], wf_params: List[str], 
-                       target_tasks: List[str], storage_type: str = "pfs", exp_data_path: str = "./", 
+def get_test_folder_dfs(test_folders: List[str], wf_params: List[str],
+                       target_tasks: List[str], storage_type: str = "pfs", exp_data_path: str = "./",
                        debug: bool = False, csv_filename: str = "workflow_data.csv") -> pd.DataFrame:
     """Get DataFrame for multiple test folders."""
     folder_dfs = pd.DataFrame(columns=wf_params)
-    
+
     for test_folder in test_folders:
         # Construct the full path for the test folder
         full_test_path = f"{exp_data_path}/{test_folder}"
         wf_df = get_wf_result_df(full_test_path, wf_params, target_tasks, storage_type, debug, csv_filename)
         if len(wf_df) > 0:
             folder_dfs = pd.concat([folder_dfs, wf_df], ignore_index=True)
-        
+
     return folder_dfs
 
 
@@ -310,7 +311,7 @@ def match_script_name(tests: str) -> Dict[str, Dict[str, Any]]:
     # Find folders ending with [t1, t2, t3] in the test_folders
     test_folders = glob.glob(f"{tests}/*")
     wf_trial_folders = [
-        folder for folder in test_folders 
+        folder for folder in test_folders
         if folder.endswith("t1") or folder.endswith("t2") or folder.endswith("t3")
     ]
     print(f"Trial folders: {wf_trial_folders}")
@@ -364,7 +365,7 @@ def get_wf_pid_script_dict(test_folder: List[str], exp_data_path: str) -> Dict[s
     for tests in test_folder:
         wf_dict = match_script_name(f"{exp_data_path}/{tests}")
         all_wf_dict.update(wf_dict)
-    
+
     return all_wf_dict
 
 
@@ -381,7 +382,7 @@ def matches_pattern(file_path: str, patterns: List[str]) -> bool:
     return False
 
 
-def assign_task_names(tasks: Dict[str, Dict[str, Any]], 
+def assign_task_names(tasks: Dict[str, Dict[str, Any]],
                      task_order_dict: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
     """Assign task names and predecessors to tasks based on patterns."""
     for task_pid, details in tasks.items():
@@ -420,11 +421,11 @@ def _load_workflow_config(wf_name: str) -> Tuple[Dict, Dict, List[int]]:
     script_order = config["SCRIPT_ORDER"]
     num_nodes_list = config["NUM_NODES_LIST"]
     exp_data_path = config["exp_data_path"]
-    
+
     # Load task ordering json file
     with open(f"{exp_data_path}/{script_order}.json") as f:
         task_order_dict = json.load(f)
-    
+
     return config, task_order_dict, num_nodes_list
 
 
@@ -435,7 +436,7 @@ def _assign_basic_task_info(wf_df: pd.DataFrame, all_wf_dict: Dict, task_order_d
         wf_df['prevTask'] = ""
     if 'taskName' not in wf_df.columns:
         wf_df['taskName'] = "unknown"
-    
+
     # Update DataFrame with task information
     if all_wf_dict:
         for task_pid, task_info in all_wf_dict.items():
@@ -446,7 +447,7 @@ def _assign_basic_task_info(wf_df: pd.DataFrame, all_wf_dict: Dict, task_order_d
                 wf_df.loc[mask, 'taskName'] = mapped_name
             wf_df.loc[mask, 'prevTask'] = task_info.get('prevTask', '')
             wf_df.loc[mask, 'stageOrder'] = task_info.get('stage_order', 1)
-    
+
     return wf_df
 
 
@@ -460,7 +461,7 @@ def _normalize_stage_orders(wf_df: pd.DataFrame, debug: bool = False) -> pd.Data
             wf_df['stageOrder'] = wf_df['stageOrder'] + 1
         elif debug:
             print(f"Debug: StageOrder already starts from {min_stage_order}, no normalization needed")
-    
+
     return wf_df
 
 
@@ -468,7 +469,7 @@ def _assign_prev_tasks_from_patterns(wf_df: pd.DataFrame, task_order_dict: Dict,
     """Assign prevTask based on file patterns for read operations."""
     if debug:
         print("Debug: Starting prevTask assignment for read operations...")
-    
+
     for index, row in wf_df.iterrows():
         if row['operation'] == 'write':  # Already standardized
             if row['taskName'] == '':
@@ -476,12 +477,12 @@ def _assign_prev_tasks_from_patterns(wf_df: pd.DataFrame, task_order_dict: Dict,
         else:  # Read operation
             taskName = row['taskName']
             fileName = row['fileName']
-            
+
             if taskName in task_order_dict:
                 task_definition = task_order_dict[taskName]
                 if debug:
                     print(f"Debug: Processing {taskName} with fileName {fileName}")
-                
+
                 # Check predecessors for this task
                 for prevTask, inputs in task_definition['predecessors'].items():
                     input_patterns = inputs['inputs']
@@ -498,7 +499,7 @@ def _assign_prev_tasks_from_patterns(wf_df: pd.DataFrame, task_order_dict: Dict,
             else:
                 if debug:
                     print(f"Debug: taskName {taskName} not found in task_order_dict")
-    
+
     return wf_df
 
 
@@ -506,37 +507,37 @@ def _label_initial_data(wf_df: pd.DataFrame, debug: bool = False) -> pd.DataFram
     """Label initial_data for read operations where there's no write operation for the same fileName at stageOrder-1."""
     if len(wf_df) == 0:
         return wf_df
-    
+
     print(f"\n=== _label_initial_data START ===")
     print(f"Input DataFrame shape: {wf_df.shape}")
-    
+
     # Get all read operations with fileName and stageOrder
     read_ops = wf_df[wf_df['operation'] == 'read'][['fileName', 'stageOrder']].copy()
     read_ops['fileName'] = read_ops['fileName'].str.strip()
-    
+
     # Get all write operations with fileName and stageOrder
     write_ops = wf_df[wf_df['operation'] == 'write'][['fileName', 'stageOrder']].copy()
     write_ops['fileName'] = write_ops['fileName'].str.strip()
-    
+
     if debug:
         print(f"Debug: Found {len(read_ops)} read operations and {len(write_ops)} write operations")
         print(f"Debug: Read operations:\n{read_ops}")
         print(f"Debug: Write operations:\n{write_ops}")
-    
+
     # For each read operation, check if there's a write operation for the same fileName at stageOrder-1
     initial_data_mask = wf_df['prevTask'] == ''  # Start with empty prevTask rows
-    
+
     for idx, row in wf_df.iterrows():
         if row['operation'] == 'read' and row['prevTask'] == '':
             file_name = row['fileName'].strip()
             stage_order = row['stageOrder']
-            
+
             # Check if there's a write operation for this fileName at stageOrder-1
             has_write_at_prev_stage = write_ops[
-                (write_ops['fileName'] == file_name) & 
+                (write_ops['fileName'] == file_name) &
                 (write_ops['stageOrder'] == stage_order - 1)
             ].shape[0] > 0
-            
+
             if not has_write_at_prev_stage:
                 # No write operation at previous stage, this is initial_data
                 initial_data_mask.loc[idx] = True
@@ -545,19 +546,19 @@ def _label_initial_data(wf_df: pd.DataFrame, debug: bool = False) -> pd.DataFram
             else:
                 if debug:
                     print(f"Debug: {file_name} at stage {stage_order} does NOT qualify (has write at stage {stage_order-1})")
-    
+
     # Apply the mask to label initial_data
     wf_df.loc[initial_data_mask & (wf_df['operation'] == 'read'), 'prevTask'] = 'initial_data'
-    
+
     # FINAL VERIFICATION: Check what was actually labeled
     labeled_rows = wf_df[wf_df['prevTask'] == 'initial_data']
     print(f"\n=== FINAL CHECK: {len(labeled_rows)} rows labeled as 'initial_data' ===")
     for idx, row in labeled_rows.iterrows():
         print(f"Labeled row {idx}: fileName='{row['fileName']}', operation='{row['operation']}', stageOrder={row['stageOrder']}")
-        
+
         if row['operation'] != 'read':
             print(f"  *** CRITICAL ERROR: Write operation labeled as 'initial_data'! ***")
-    
+
     print(f"=== _label_initial_data END ===\n")
     return wf_df
 
@@ -566,37 +567,37 @@ def _label_final_data(wf_df: pd.DataFrame, debug: bool = False) -> pd.DataFrame:
     """Label final_data for write operations where there's no read operation for the same fileName at stageOrder+1."""
     if len(wf_df) == 0:
         return wf_df
-    
+
     print(f"\n=== _label_final_data START ===")
     print(f"Input DataFrame shape: {wf_df.shape}")
-    
+
     # Get all write operations with fileName and stageOrder
     write_ops = wf_df[wf_df['operation'] == 'write'][['fileName', 'stageOrder']].copy()
     write_ops['fileName'] = write_ops['fileName'].str.strip()
-    
+
     # Get all read operations with fileName and stageOrder
     read_ops = wf_df[wf_df['operation'] == 'read'][['fileName', 'stageOrder']].copy()
     read_ops['fileName'] = read_ops['fileName'].str.strip()
-    
+
     if debug:
         print(f"Debug: Found {len(write_ops)} write operations and {len(read_ops)} read operations")
         print(f"Debug: Write operations:\n{write_ops}")
         print(f"Debug: Read operations:\n{read_ops}")
-    
+
     # For each write operation, check if there's a read operation for the same fileName at stageOrder+1
     final_data_mask = pd.Series([False] * len(wf_df), index=wf_df.index)  # Start with all False
-    
+
     for idx, row in wf_df.iterrows():
         if row['operation'] == 'write':  # Process all write operations regardless of prevTask
             file_name = row['fileName'].strip()
             stage_order = row['stageOrder']
-            
+
             # Check if there's a read operation for this fileName at stageOrder+1
             has_read_at_next_stage = read_ops[
-                (read_ops['fileName'] == file_name) & 
+                (read_ops['fileName'] == file_name) &
                 (read_ops['stageOrder'] == stage_order + 1)
             ].shape[0] > 0
-            
+
             if not has_read_at_next_stage:
                 # No read operation at next stage, this is final_data
                 final_data_mask.loc[idx] = True
@@ -605,19 +606,19 @@ def _label_final_data(wf_df: pd.DataFrame, debug: bool = False) -> pd.DataFrame:
             else:
                 if debug:
                     print(f"Debug: {file_name} at stage {stage_order} does NOT qualify (has read at stage {stage_order+1})")
-    
+
     # Apply the mask to label final_data (overwrite any existing prevTask values)
     wf_df.loc[final_data_mask & (wf_df['operation'] == 'write'), 'prevTask'] = 'final_data'
-    
+
     # FINAL VERIFICATION: Check what was actually labeled
     labeled_rows = wf_df[wf_df['prevTask'] == 'final_data']
     print(f"\n=== FINAL CHECK: {len(labeled_rows)} rows labeled as 'final_data' ===")
     for idx, row in labeled_rows.iterrows():
         print(f"Labeled row {idx}: fileName='{row['fileName']}', operation='{row['operation']}', stageOrder={row['stageOrder']}")
-        
+
         if row['operation'] != 'write':
             print(f"  *** CRITICAL ERROR: Read operation labeled as 'final_data'! ***")
-    
+
     print(f"=== _label_final_data END ===\n")
     return wf_df
 
@@ -626,7 +627,7 @@ def _add_parallelism_info(wf_df: pd.DataFrame, task_order_dict: Dict, num_nodes_
     """Add parallelism and node information to DataFrame."""
     task_name_to_parallelism = {task: info['parallelism'] for task, info in task_order_dict.items()}
     task_name_to_num_tasks = {task: info['num_tasks'] for task, info in task_order_dict.items()}
-    
+
     for task_name, parallelism in task_name_to_parallelism.items():
         mask = wf_df['taskName'] == task_name
         wf_df.loc[mask, 'parallelism'] = parallelism
@@ -634,7 +635,7 @@ def _add_parallelism_info(wf_df: pd.DataFrame, task_order_dict: Dict, num_nodes_
         wf_df.loc[mask, 'numNodesList'] = str(num_nodes_list)
         wf_df.loc[mask, 'numNodes'] = 1
         wf_df.loc[mask, 'tasksPerNode'] = task_name_to_num_tasks.get(task_name, 1)
-    
+
     return wf_df
 
 
@@ -642,29 +643,29 @@ def _final_verification(wf_df: pd.DataFrame, debug: bool = False) -> None:
     """Perform final verification of labeling."""
     if not debug:
         return
-    
+
     print("\n=== FINAL VERIFICATION ===")
-    
+
     # Check for write operations with initial_data label
     write_with_initial_data = wf_df[
-        (wf_df['operation'] == 'write') & 
+        (wf_df['operation'] == 'write') &
         (wf_df['prevTask'] == 'initial_data')
     ]
     if len(write_with_initial_data) > 0:
         print(f"ERROR: Found {len(write_with_initial_data)} write operations incorrectly labeled as 'initial_data':")
         for _, row in write_with_initial_data.iterrows():
             print(f"  - {row['fileName']} with operation {row['operation']} at stage {row['stageOrder']}")
-    
+
     # Check for read operations with final_data label
     read_with_final_data = wf_df[
-        (wf_df['operation'] == 'read') & 
+        (wf_df['operation'] == 'read') &
         (wf_df['prevTask'] == 'final_data')
     ]
     if len(read_with_final_data) > 0:
         print(f"ERROR: Found {len(read_with_final_data)} read operations incorrectly labeled as 'final_data':")
         for _, row in read_with_final_data.iterrows():
             print(f"  - {row['fileName']} with operation {row['operation']} at stage {row['stageOrder']}")
-    
+
     # Summary of labeling
     initial_data_count = len(wf_df[(wf_df['prevTask'] == 'initial_data')])
     final_data_count = len(wf_df[(wf_df['prevTask'] == 'final_data')])
@@ -674,12 +675,12 @@ def _final_verification(wf_df: pd.DataFrame, debug: bool = False) -> None:
 def load_workflow_data(wf_name: str = DEFAULT_WF, debug: bool = False, csv_filename: str = "workflow_data.csv") -> Tuple[pd.DataFrame, Dict[str, Any], Dict[str, Any]]:
     """
     Load and process workflow data.
-    
+
     Parameters:
     - wf_name: Name of the workflow to load
     - debug: Whether to enable debug print statements
     - csv_filename: Name of the CSV file to load (default: "workflow_data.csv")
-    
+
     Returns:
     - DataFrame: Processed workflow data
     - Dict: Task order dictionary
@@ -687,61 +688,61 @@ def load_workflow_data(wf_name: str = DEFAULT_WF, debug: bool = False, csv_filen
     """
     # Load configuration and task ordering
     config, task_order_dict, num_nodes_list = _load_workflow_config(wf_name)
-    
+
     # Load workflow data
     wf_df = get_test_folder_dfs(
-        config["test_folders"], WF_PARAMS, TARGET_TASKS, 
-        storage_type="pfs", exp_data_path=config["exp_data_path"], 
+        config["test_folders"], WF_PARAMS, TARGET_TASKS,
+        storage_type="pfs", exp_data_path=config["exp_data_path"],
         debug=debug, csv_filename=csv_filename
     )
-    
+
     # Get workflow PID script dictionary and assign task names
     all_wf_dict = get_wf_pid_script_dict(config["test_folders"], config["exp_data_path"])
     all_wf_dict = assign_task_names(all_wf_dict, task_order_dict)
-    
+
     # Process workflow data
     wf_df = _assign_basic_task_info(wf_df, all_wf_dict, task_order_dict)
     wf_df = _normalize_stage_orders(wf_df, debug)
     wf_df = _assign_prev_tasks_from_patterns(wf_df, task_order_dict, debug)
-    
+
     # Standardize operations BEFORE labeling
     wf_df['operation'] = wf_df['operation'].apply(standardize_operation)
     if debug:
         print(f"Operations standardized. Operation counts: {wf_df['operation'].value_counts()}")
-    
+
     wf_df = _label_initial_data(wf_df, debug)
     wf_df = _label_final_data(wf_df, debug)
     wf_df = _add_parallelism_info(wf_df, task_order_dict, num_nodes_list)
-    
+
     # Final verification
     _final_verification(wf_df, debug)
-    
+
     # Expand DataFrame for multi-node configurations if enabled
     if MULTI_NODES:
         wf_df = expand_df(wf_df, num_nodes_list)
         if debug:
             print(f"Expanded DataFrame shape after multi-node expansion: {wf_df.shape}")
-    
+
     # Update single-node configurations
     for index, row in wf_df.iterrows():
         if row['parallelism'] == 1:
             wf_df.loc[index, 'numNodes'] = 1
             wf_df.loc[index, 'tasksPerNode'] = 1
-    
+
     return wf_df, task_order_dict, all_wf_dict
 
 
 def expand_df(wf_df: pd.DataFrame, num_nodes_list: List[int]) -> pd.DataFrame:
     """
     Expand the dataframe for multi-nodes configuration calculation.
-    
+
     This function creates multiple rows for each original row, one for each node count
     in num_nodes_list, and calculates tasksPerNode for each configuration.
-    
+
     Parameters:
     - wf_df: Workflow DataFrame
     - num_nodes_list: List of node counts to expand to
-    
+
     Returns:
     - DataFrame: Expanded DataFrame with rows for each node configuration
     """
@@ -778,7 +779,7 @@ def expand_df(wf_df: pd.DataFrame, num_nodes_list: List[int]) -> pd.DataFrame:
             except Exception as e:
                 print(f"Error updating row {index}: {e}: {row}")
                 continue
-            
+
             # Append the updated row to the list
             updated_rows.append(new_row)
 
@@ -794,11 +795,11 @@ def expand_df(wf_df: pd.DataFrame, num_nodes_list: List[int]) -> pd.DataFrame:
 
     # Reset the index of the expanded DataFrame
     expanded_df.reset_index(drop=True, inplace=True)
-    
+
     return expanded_df
 
 
-def calculate_io_time_breakdown(wf_df: pd.DataFrame, task_name_to_parallelism: Dict[str, int], 
+def calculate_io_time_breakdown(wf_df: pd.DataFrame, task_name_to_parallelism: Dict[str, int],
                                num_nodes_list: List[int]) -> Dict[str, float]:
     """Calculate I/O time breakdown per task."""
     # Calculate I/O time per taskName
@@ -813,7 +814,7 @@ def calculate_io_time_breakdown(wf_df: pd.DataFrame, task_name_to_parallelism: D
     total_wf_io_time = 0
     total_wf_io_time_write = 0
     total_wf_io_time_read = 0
-    
+
     print("Total I/O time per taskName:")
     for task, write_time in task_io_time_write.items():
         # Adjust I/O time by parallelism
@@ -822,7 +823,7 @@ def calculate_io_time_breakdown(wf_df: pd.DataFrame, task_name_to_parallelism: D
         total_wf_io_time_write += write_time_adjusted
         total_wf_io_time += write_time_adjusted
         print(f" {task} (write): {write_time_adjusted} (sec)")
-    
+
     for task, read_time in task_io_time_read.items():
         # Adjust I/O time by parallelism
         read_time_adjusted = read_time / (task_name_to_parallelism[task] * len(num_nodes_list))
@@ -830,24 +831,24 @@ def calculate_io_time_breakdown(wf_df: pd.DataFrame, task_name_to_parallelism: D
         total_wf_io_time_read += read_time_adjusted
         total_wf_io_time += read_time_adjusted
         print(f" {task} (read): {read_time_adjusted} (sec)")
-        
+
     print(f"Total I/O time per workflow: {total_wf_io_time}")
-    
+
     return {
         'total_io_time': total_wf_io_time,
         'total_write_time': total_wf_io_time_write,
         'total_read_time': total_wf_io_time_read,
         'task_io_time_adjust': task_io_time_adjust
-    } 
+    }
 
 
 def standardize_operation(operation):
     """
     Standardize operation codes to string format.
-    
+
     Parameters:
     - operation: Operation code (int or str)
-    
+
     Returns:
     - str: Standardized operation string ('read', 'write', 'cp', 'scp', 'none')
     """
@@ -885,10 +886,10 @@ def standardize_operation(operation):
 def get_operation_type(operation):
     """
     Get operation type for file matching.
-    
+
     Parameters:
     - operation: Operation code (int or str)
-    
+
     Returns:
     - str: Operation type ('w' for write, 'r' for read)
     """
@@ -896,4 +897,4 @@ def get_operation_type(operation):
     if op in ['write', 'cp']:
         return 'w'
     else:
-        return 'r' 
+        return 'r'

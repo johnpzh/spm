@@ -59,8 +59,8 @@ TEST_CONFIGS = {
     # },
     "1kg": {
         "SCRIPT_ORDER": "1kg_script_order",
-        "NUM_NODES_LIST": [10],
-        "ALLOWED_PARALLELISM": [20], # [2, 4, 5, 10, 30, 60, 150],
+        "NUM_NODES_LIST": [2],
+        "ALLOWED_PARALLELISM": [5, 35, 150], # [2, 4, 5, 10, 30, 60, 150],
         "exp_data_path": "./1kgenome",
         "test_folders": ['par_6000_10n_nfs_ps300']
     },
@@ -85,13 +85,6 @@ TEST_CONFIGS = {
         "exp_data_path": "./pyflextrkr",
         "test_folders": ['summer_sam_4n_pfs_s9']
     },
-    "pyflextrkr_wrf": {
-        "SCRIPT_ORDER": "pyflextrkr_script_order_wrf",
-        "NUM_NODES_LIST": [8],
-        "ALLOWED_PARALLELISM": [48],
-        "exp_data_path": "./pyflextrkr",
-        "test_folders": ['mcs_wrf_tbradar']
-    },
     # "ptychonn": {
     #     "SCRIPT_ORDER": "ptychonn_script_order",
     #     "NUM_NODES_LIST": [1],
@@ -101,8 +94,8 @@ TEST_CONFIGS = {
     # },
     "montage": {
         "SCRIPT_ORDER": "montage_script_order",
-        "NUM_NODES_LIST": [8],
-        "ALLOWED_PARALLELISM": [16],
+        "NUM_NODES_LIST": [2],
+        "ALLOWED_PARALLELISM": [8],
         "exp_data_path": "./montage",
         "test_folders": ['montage_2n_16blue']
     },
@@ -129,7 +122,7 @@ TEST_CONFIGS = {
     },
     "sra_search": {
         "SCRIPT_ORDER": "sra_search_script_order",
-        "NUM_NODES_LIST": [8],
+        "NUM_NODES_LIST": [2],
         "ALLOWED_PARALLELISM": [16],
         "exp_data_path": "./sra_search",
         "test_folders": ['sra_search_4n_999ids']

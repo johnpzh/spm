@@ -1,0 +1,99 @@
+{
+    "bowtie2-build": {
+        "stage_order": 1,
+        "parallelism": 10,
+        "num_tasks": 10,
+        "predecessors": {
+            "initial_data": {
+                "inputs": [
+                    "crassphage\\.fna"
+                ]
+            }
+        },
+        "outputs": [
+            "reference\\.1\\.bt2",
+            "reference\\.2\\.bt2",
+            "reference\\.3\\.bt2",
+            "reference\\.4\\.bt2",
+            "reference\\.rev\\.1\\.bt2",
+            "reference\\.rev\\.2\\.bt2"
+        ]
+    },
+    "fasterq-dump": {
+        "stage_order": 1,
+        "parallelism": 10,
+        "num_tasks": 10,
+        "predecessors": {
+            "initial_data": {
+                "inputs": [
+                    "SRR[0-9]+\\.sra"
+                ]
+            }
+        },
+        "outputs": [
+            "SRR[0-9]+_1\\.fastq",
+            "SRR[0-9]+_2\\.fastq"
+        ]
+    },
+    "bowtie2-samtools": {
+        "stage_order": 2,
+        "parallelism": 10,
+        "num_tasks": 10,
+        "predecessors": {
+            "fasterq-dump": {
+                "inputs": [
+                    "SRR[0-9]+_1\\.fastq",
+                    "SRR[0-9]+_2\\.fastq"
+                ]
+            },
+            "bowtie2-build": {
+                "inputs": [
+                    "reference\\.1\\.bt2",
+                    "reference\\.2\\.bt2",
+                    "reference\\.3\\.bt2",
+                    "reference\\.4\\.bt2",
+                    "reference\\.rev\\.1\\.bt2",
+                    "reference\\.rev\\.2\\.bt2"
+                ]
+            }
+        },
+        "outputs": [
+            "SRR[0-9]+\\.bam"
+        ]
+    },
+    "samtools": {
+        "stage_order": 3,
+        "parallelism": 10,
+        "num_tasks": 10,
+        "predecessors": {
+            "bowtie2-samtools": {
+                "inputs": [
+                    "SRR[0-9]+\\.bam"
+                ]
+            }
+        },
+        "outputs": [
+            "SRR[0-9]+\\.bam\\.bai"
+        ]
+    },
+    "tar-compress": {
+        "stage_order": 4,
+        "parallelism": 10,
+        "num_tasks": 10,
+        "predecessors": {
+            "bowtie2-samtools": {
+                "inputs": [
+                    "SRR[0-9]+\\.bam"
+                ]
+            },
+            "samtools": {
+                "inputs": [
+                    "SRR[0-9]+\\.bam\\.bai"
+                ]
+            }
+        },
+        "outputs": [
+            ".*\\.tar\\.gz"
+        ]
+    }
+}
