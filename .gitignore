@@ -1,3 +1,7 @@
+# Output
+output.*
+output_*
+
 # Ignore specific folder content but keep folder structure
 workflow_analysis/1kgenome/par_6000_10n_nfs_ps300/*
 perf_profiles/cp_data/*
