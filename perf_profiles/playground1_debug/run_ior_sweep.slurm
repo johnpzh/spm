@@ -153,15 +153,15 @@ command -v "${IOR_BIN}" >/dev/null 2>&1 || {
   exit 1
 }
 
-NUM_NODES="${SLURM_JOB_NUM_NODES:-1}"
-TASKS_PER_NODE_DEFAULT="${TASKS_PER_NODE_DEFAULT:-1}"
-TOTAL_TASKS_DEFAULT="$((NUM_NODES * TASKS_PER_NODE_DEFAULT))"
+# NUM_NODES="${SLURM_JOB_NUM_NODES:-1}"
+# TASKS_PER_NODE_DEFAULT="${TASKS_PER_NODE_DEFAULT:-1}"
+# TOTAL_TASKS_DEFAULT="$((NUM_NODES * TASKS_PER_NODE_DEFAULT))"
 
-mkdir -p "${RESULTS_ROOT}"
-mkdir -p "${TEST_ROOT}"
+# mkdir -p "${RESULTS_ROOT}"
+# mkdir -p "${TEST_ROOT}"
 
-OUT_DIR="${RESULTS_ROOT}/ior_data/${STORAGE_TYPE}_pior_buffered_${NUM_NODES}n"
-mkdir -p "${OUT_DIR}"
+# OUT_DIR="${RESULTS_ROOT}/ior_data/${STORAGE_TYPE}_pior_buffered_${NUM_NODES}n"
+# mkdir -p "${OUT_DIR}"
 
 ############################################
 # Build config list (optionally for job arrays)
@@ -184,6 +184,15 @@ for pattern in "${PATTERNS[@]}"; do
     done
   done
 done
+
+echo "PATTERNS=${PATTERNS[@]}"
+echo "len(CONFIGS)=${#CONFIGS[@]}"
+
+#########
+#########
+exit 2
+#########
+#########
 
 IDX="${SLURM_ARRAY_TASK_ID:-}"
 if [[ -n "${IDX}" ]]; then
