@@ -240,8 +240,8 @@ for cfg in "${CONFIGS[@]}"; do
 
   # Ensure per-task size is at least transfer size.
   tr_bytes="$(bytes_from_size_token "${tr_lc}")"
-  if (( per_task_bytes < tr_bytes )); then
-    echo "Skipping config where per-task size < transfer: ${cfg} (per_task_bytes=${per_task_bytes}, tr_bytes=${tr_bytes})" >&2
+  if (( per_task_bytes <= tr_bytes )); then
+    echo "Skipping config where per-task size <= transfer: ${cfg} (per_task_bytes=${per_task_bytes}, tr_bytes=${tr_bytes})" >&2
     continue
   fi
   if (( per_task_bytes % tr_bytes != 0 )); then
