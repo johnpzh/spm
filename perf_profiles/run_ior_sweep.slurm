@@ -45,11 +45,11 @@ TEST_ROOT="${TEST_ROOT:-/path/to/STORAGE/ior_test}"
 RESULTS_ROOT="${RESULTS_ROOT:-/path/to/store/ior_results}"
 
 echo "#################"
-echo "#### Inside ${BASH_SOURCE[0]} ####"
+echo "# Inside ${BASH_SOURCE[0]}"
 echo "IOR_BIN=${IOR_BIN}"
 echo "TEST_ROOT=${TEST_ROOT}"
 echo "RESULTS_ROOT=${RESULTS_ROOT}"
-echo "#### End Inside ${BASH_SOURCE[0]} ####"
+echo "# End Inside ${BASH_SOURCE[0]}"
 echo "#################"
 
 # Storage label used in output directory names; expected by ior_utils.py:
@@ -154,8 +154,13 @@ command -v "${IOR_BIN}" >/dev/null 2>&1 || {
 }
 
 NUM_NODES="${SLURM_JOB_NUM_NODES:-1}"
-TASKS_PER_NODE_DEFAULT="${TASKS_PER_NODE_DEFAULT:-1}"
-TOTAL_TASKS_DEFAULT="$((NUM_NODES * TASKS_PER_NODE_DEFAULT))"
+# TASKS_PER_NODE_DEFAULT="${TASKS_PER_NODE_DEFAULT:-1}"
+# TOTAL_TASKS_DEFAULT="$((NUM_NODES * TASKS_PER_NODE_DEFAULT))"
+
+# Max tasks this allocation can support (Perlmutter: 256 cores/node).
+CORES_PER_NODE="${CORES_PER_NODE:-256}"
+MAX_TASKS=$((NUM_NODES * CORES_PER_NODE))
+echo "MAX_TASKS=${MAX_TASKS} (NUM_NODES=${NUM_NODES} * CORES_PER_NODE=${CORES_PER_NODE})"
 
 mkdir -p "${RESULTS_ROOT}"
 mkdir -p "${TEST_ROOT}"
@@ -215,7 +220,7 @@ else
   echo "  Non-array mode: running ${#CONFIGS[@]} configs (may be very large)"
 fi
 
-echo "CONFIGS=${CONFIGS[@]}"
+echo "CONFIGS=${CONFIGS[*]}"
 
 for cfg in "${CONFIGS[@]}"; do
   IFS='|' read -r pattern tr agg_gb ntasks rep <<< "${cfg}"
@@ -232,6 +237,11 @@ for cfg in "${CONFIGS[@]}"; do
 
   agg_bytes=$((agg_gb * 1024 * 1024 * 1024))
   per_task_bytes=$((agg_bytes / ntasks))
+
+  if (( ntasks > MAX_TASKS )); then
+    echo "Skipping config: ntasks=${ntasks} > available cores=${MAX_TASKS}: ${cfg}" >&2
+    continue
+  fi
 
   if (( per_task_bytes <= 0 )); then
     echo "Skipping invalid config (aggregate too small): ${cfg}" >&2
@@ -287,7 +297,7 @@ for cfg in "${CONFIGS[@]}"; do
     log_out="${OUT_DIR}/${base_name}_write.log"
     echo "Running WRITE: ${json_out}"
     set -x
-    "${IOR_BIN}" "${common_flags[@]}" -w -k "${extra_flags[@]}" > "${json_out}" 2> "${log_out}" # -k is for keep file for the following read.
+    srun -N "${NUM_NODES}" -n "${ntasks}" "${IOR_BIN}" "${common_flags[@]}" -w -k "${extra_flags[@]}" > "${json_out}" 2> "${log_out}" || echo "WRITE FAILED (rc=$?): ${cfg}" >&2 # -k is for keep file for the following read.
     set +x
   fi
 
@@ -296,7 +306,7 @@ for cfg in "${CONFIGS[@]}"; do
     log_out="${OUT_DIR}/${base_name}_read.log"
     echo "Running READ: ${json_out}"
     set -x
-    "${IOR_BIN}" "${common_flags[@]}" -r "${extra_flags[@]}" > "${json_out}" 2> "${log_out}"
+    srun -N "${NUM_NODES}" -n "${ntasks}" "${IOR_BIN}" "${common_flags[@]}" -r "${extra_flags[@]}" > "${json_out}" 2> "${log_out}" || echo "READ FAILED (rc=$?): ${cfg}" >&2
     set +x
   fi
 

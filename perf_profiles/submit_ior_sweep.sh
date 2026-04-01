@@ -112,6 +112,7 @@ compute_array_len() {
 
 wait_for_slot() {
   while true; do
+    local n
     n=$(squeue -u "$USER" -h -t PD,R,CG,CF,RS 2>/dev/null | wc -l)
     echo "running jobs: ${n}"
     if [ "$n" -lt "$MAX_JOBS" ]; then
@@ -162,7 +163,7 @@ submit_one() {
       --export=ALL,STORAGE_TYPE="${storage}",TEST_ROOT="${test_root}" \
       --qos=premium \
       --account=m5314 \
-      --time=04:00:00 \
+      --time=05:00:00 \
       --constraint=cpu \
       --output=output.storage-${storage}.nodes-${nodes}.%x.%A.%a.out.log \
       --error=output.storage-${storage}.nodes-${nodes}.%x.%A.%a.err.log \
@@ -174,7 +175,7 @@ submit_one() {
     wait_for_slot
   }
 
-  if [[ "${ARRAY_CHUNK_SIZE}" == "0" || "${ARRAY_CHUNK_SIZE}" -ge "${capped_last}" ]]; then
+  if [[ "${ARRAY_CHUNK_SIZE}" == "0" || "${ARRAY_CHUNK_SIZE}" -gt "${capped_last}" ]]; then
     submit_array_chunk 0 "${capped_last}"
   else
     local s=0
