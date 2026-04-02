@@ -21,10 +21,10 @@ echo "SBATCH_SCRIPT: ${SBATCH_SCRIPT}"
 
 # Where IOR should create its *test files* for each storage.
 # These MUST be on the storage being benchmarked.
-BEEGFS_TEST_ROOT="${BEEGFS_TEST_ROOT:-/pscratch/sd/j/johnpzh}"
-SSD_TEST_ROOT="${SSD_TEST_ROOT:-/images}"
-NFS_TEST_ROOT="${NFS_TEST_ROOT:-/global/cfs/cdirs/m5314/zhen.peng}"
-TMPFS_TEST_ROOT="${TMPFS_TEST_ROOT:-/tmp}"
+BEEGFS_TEST_ROOT="${BEEGFS_TEST_ROOT:-/pscratch/sd/j/johnpzh/ior_test_root}"
+SSD_TEST_ROOT="${SSD_TEST_ROOT:-/images/ior_test_root}"
+NFS_TEST_ROOT="${NFS_TEST_ROOT:-/global/cfs/cdirs/m5314/zhen.peng/ior_test_root}"
+TMPFS_TEST_ROOT="${TMPFS_TEST_ROOT:-/tmp/ior_test_root}"
 
 echo "BEEGFS_TEST_ROOT: ${BEEGFS_TEST_ROOT}"
 echo "SSD_TEST_ROOT: ${SSD_TEST_ROOT}"
@@ -194,8 +194,18 @@ submit_one() {
 
 for n in "${NUM_NODES_LIST[@]}"; do
   submit_one "beegfs" "${n}" "${BEEGFS_TEST_ROOT}"
-  submit_one "ssd" "${n}" "${SSD_TEST_ROOT}"
+done
+
+## Seems no SSD on compute nodes on Perlmutter. /images is only on the login nodes.
+# for n in "${NUM_NODES_LIST[@]}"; do
+#   submit_one "ssd" "${n}" "${SSD_TEST_ROOT}"
+# done
+
+for n in "${NUM_NODES_LIST[@]}"; do
   submit_one "nfs" "${n}" "${NFS_TEST_ROOT}"
+done
+
+for n in "${NUM_NODES_LIST[@]}"; do
   submit_one "tmpfs" "${n}" "${TMPFS_TEST_ROOT}"
 done
 
