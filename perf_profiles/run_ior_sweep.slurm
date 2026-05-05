@@ -283,6 +283,7 @@ for cfg in "${CONFIGS[@]}"; do
     -F
     -o "${work_dir}/iorfile"
     -N "${ntasks}"
+    -O summaryFormat=JSON
   )
 
   if [[ "${pattern}" == "random" ]]; then

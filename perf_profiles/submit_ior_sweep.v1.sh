@@ -161,7 +161,7 @@ submit_one() {
     sbatch --nodes="${nodes}" \
       --array="${array_spec}" \
       --export=ALL,STORAGE_TYPE="${storage}",TEST_ROOT="${test_root}" \
-      --qos=premium \
+      --qos=regular \
       --account=m5314 \
       --time=05:00:00 \
       --constraint=cpu \
