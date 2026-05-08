@@ -1,0 +1,5 @@
+,,,trMiB,trMiB,trMiB,trMiB,totalTime,totalTime,totalTime,totalTime,transferSize,numTasks
+,,,mean,std,min,max,mean,std,min,max,first,first
+storageType,operation,numNodes,,,,,,,,,,
+tmpfs,read,1,882.37,1395.55,99.62,5624.18,5.04,4.09,0.18,10.28,64,4
+tmpfs,write,1,768.71,1206.55,86.16,4854.0,5.8,4.72,0.21,11.88,64,4

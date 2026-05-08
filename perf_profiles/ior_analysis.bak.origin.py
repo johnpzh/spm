@@ -299,20 +299,22 @@ def summary_statistics_analysis(df: pd.DataFrame, plot_dir: str):
     
     return summary_stats
 
-def analyze_specific_conditions(df: pd.DataFrame, storage_type: str, transfer_size_bytes: int, num_nodes: int, plot_dir: str):
+def analyze_specific_conditions(df: pd.DataFrame, storage_type: str, transfer_size_mb: int, num_nodes: int, plot_dir: str):
     """
     Analyze data for specific conditions and create detailed plots.
     """
+    transfer_size_bytes = transfer_size_mb * 1024 * 1024
+    
     # Filter data
     filtered_df = filter_data_by_conditions(
         df, storage_type=storage_type, transfer_size=transfer_size_bytes, num_nodes=num_nodes
     )
-
+    
     if filtered_df.empty:
-        print(f"No data found for {storage_type}, {transfer_size_bytes} bytes, {num_nodes} nodes")
+        print(f"No data found for {storage_type}, {transfer_size_mb}MB, {num_nodes} nodes")
         return
-
-    print(f"Analysis for {storage_type.upper()}, {transfer_size_bytes} bytes transfer, {num_nodes} node(s):")
+    
+    print(f"Analysis for {storage_type.upper()}, {transfer_size_mb}MB transfer, {num_nodes} node(s):")
     print(f"Number of data points: {len(filtered_df)}")
     
     # Create subplots
@@ -351,7 +353,7 @@ def analyze_specific_conditions(df: pd.DataFrame, storage_type: str, transfer_si
     ax2.grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig(os.path.join(plot_dir, f'detailed_analysis_{storage_type}_{transfer_size_bytes}b_{num_nodes}nodes.pdf'),
+    plt.savefig(os.path.join(plot_dir, f'detailed_analysis_{storage_type}_{transfer_size_mb}mb_{num_nodes}nodes.pdf'), 
                 bbox_inches='tight')
     plt.show()
     
@@ -391,8 +393,8 @@ def main():
                        help='CSV file to load data from if data directory not found (default: updated_master_ior_df.csv)')
     parser.add_argument('--storage-type', type=str, default='beegfs',
                        help='Storage type for detailed analysis (default: beegfs)')
-    parser.add_argument('--transfer-size', type=int, default=64*1024*1024,
-                       help='Transfer size in bytes for detailed analysis (default: 67108864 = 64MB)')
+    parser.add_argument('--transfer-size', type=int, default=64,
+                       help='Transfer size in MB for detailed analysis (default: 64)')
     parser.add_argument('--num-nodes', type=int, default=1,
                        help='Number of nodes for detailed analysis (default: 1)')
     parser.add_argument('--skip-plots', action='store_true',
@@ -438,7 +440,7 @@ def main():
     print(f"Total records processed: {len(df)}")
     print(f"Storage types analyzed: {sorted(df['storageType'].unique())}")
     print(f"Number of nodes tested: {sorted(df['numNodes'].unique())}")
-    print(f"Transfer sizes tested: {sorted(df['transferSize'].unique())} Bytes")
+    print(f"Transfer sizes tested: {sorted(df['transferSize'].unique() // (1024*1024))} MB")
     if not args.skip_plots:
         print(f"\nAll plots have been saved to the '{plot_dir}' directory.")
 

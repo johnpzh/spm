@@ -425,7 +425,7 @@ def print_data_overview(df: pd.DataFrame):
     print(f"Total records: {len(df)}")
     print(f"Storage types: {sorted(df['storageType'].unique())}")
     print(f"Number of nodes: {sorted(df['numNodes'].unique())}")
-    print(f"Transfer sizes (MB): {sorted(df['transferSize'].unique() // (1024*1024))}")
+    print(f"Transfer sizes (Bytes): {sorted(df['transferSize'].unique())}")
     print(f"Operations: {sorted(df['operation'].unique())}")
     print(f"Number of tasks range: {df['numTasks'].min()} - {df['numTasks'].max()}")
     print(f"Throughput range (MiB/s): {df['trMiB'].min():.2f} - {df['trMiB'].max():.2f}")
