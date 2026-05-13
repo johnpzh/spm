@@ -24,7 +24,7 @@ echo "SBATCH_SCRIPT: ${SBATCH_SCRIPT}"
 BEEGFS_TEST_ROOT="${BEEGFS_TEST_ROOT:-/pscratch/sd/j/johnpzh/ior_test_root}"
 SSD_TEST_ROOT="${SSD_TEST_ROOT:-/images/ior_test_root}"
 NFS_TEST_ROOT="${NFS_TEST_ROOT:-/global/cfs/cdirs/m5314/zhen.peng/ior_test_root}"
-TMPFS_TEST_ROOT="${TMPFS_TEST_ROOT:-/tmp/ior_test_root}"
+TMPFS_TEST_ROOT="${TMPFS_TEST_ROOT:-/dev/shm/ior_test_root}"
 
 echo "BEEGFS_TEST_ROOT: ${BEEGFS_TEST_ROOT}"
 echo "SSD_TEST_ROOT: ${SSD_TEST_ROOT}"

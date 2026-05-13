@@ -22,9 +22,7 @@
 # Recommended: run as a job array to split configs.
 # Example: sbatch -N 4 --array=0-99 ... (see submit script)
 
-set -eu
-
-TOTAL_TIME_START=$(date +%s.%N)
+set -euo pipefail
 
 ############################################
 # User-fillable cluster/environment settings
@@ -43,14 +41,6 @@ TEST_ROOT="${TEST_ROOT:-/path/to/STORAGE/ior_test}"
 
 # Where to store JSON outputs + logs (can be different from TEST_ROOT).
 RESULTS_ROOT="${RESULTS_ROOT:-/path/to/store/ior_results}"
-
-echo "#################"
-echo "# Inside ${BASH_SOURCE[0]}"
-echo "IOR_BIN=${IOR_BIN}"
-echo "TEST_ROOT=${TEST_ROOT}"
-echo "RESULTS_ROOT=${RESULTS_ROOT}"
-echo "# End Inside ${BASH_SOURCE[0]}"
-echo "#################"
 
 # Storage label used in output directory names; expected by ior_utils.py:
 # it extracts storageType from directory prefix before first underscore.
@@ -91,14 +81,6 @@ elif [[ "${STORAGE_TYPE}" == "ssd" ]]; then
   TRANSFER_SIZES_CSV="${TRANSFER_SIZES_CSV:-64b,1k,4k,16m,256m,1g}"
   AGG_FILE_SIZES_GB_CSV="${AGG_FILE_SIZES_GB_CSV:-1,5,50,100}"
   NUM_TASKS_CSV="${NUM_TASKS_CSV:-2,4,8,32,64,128,2048,4096}"
-elif [[ "${STORAGE_TYPE}" == "nfs" ]]; then
-  TRANSFER_SIZES_CSV="${TRANSFER_SIZES_CSV:-64b,1k,1m,64m,256m}"
-  AGG_FILE_SIZES_GB_CSV="${AGG_FILE_SIZES_GB_CSV:-1,5,50}"
-  NUM_TASKS_CSV="${NUM_TASKS_CSV:-2,4,16,32,256,512,1024,2048}"
-elif [[ "${STORAGE_TYPE}" == "tmpfs" ]]; then
-  TRANSFER_SIZES_CSV="${TRANSFER_SIZES_CSV:-64b,1k,4k,16m,1g}"
-  AGG_FILE_SIZES_GB_CSV="${AGG_FILE_SIZES_GB_CSV:-1,5,50}"
-  NUM_TASKS_CSV="${NUM_TASKS_CSV:-2,4,32,128,1024}"
 else
   # Generic fallback for other clusters/storages.
   TRANSFER_SIZES_CSV="${TRANSFER_SIZES_CSV:-1m,64m}"
@@ -154,13 +136,8 @@ command -v "${IOR_BIN}" >/dev/null 2>&1 || {
 }
 
 NUM_NODES="${SLURM_JOB_NUM_NODES:-1}"
-# TASKS_PER_NODE_DEFAULT="${TASKS_PER_NODE_DEFAULT:-1}"
-# TOTAL_TASKS_DEFAULT="$((NUM_NODES * TASKS_PER_NODE_DEFAULT))"
-
-# Max tasks this allocation can support (Perlmutter: 256 cores/node).
-CORES_PER_NODE="${CORES_PER_NODE:-256}"
-MAX_TASKS=$((NUM_NODES * CORES_PER_NODE))
-echo "MAX_TASKS=${MAX_TASKS} (NUM_NODES=${NUM_NODES} * CORES_PER_NODE=${CORES_PER_NODE})"
+TASKS_PER_NODE_DEFAULT="${TASKS_PER_NODE_DEFAULT:-1}"
+TOTAL_TASKS_DEFAULT="$((NUM_NODES * TASKS_PER_NODE_DEFAULT))"
 
 mkdir -p "${RESULTS_ROOT}"
 mkdir -p "${TEST_ROOT}"
@@ -220,8 +197,6 @@ else
   echo "  Non-array mode: running ${#CONFIGS[@]} configs (may be very large)"
 fi
 
-echo "CONFIGS=${CONFIGS[*]}"
-
 for cfg in "${CONFIGS[@]}"; do
   IFS='|' read -r pattern tr agg_gb ntasks rep <<< "${cfg}"
 
@@ -238,11 +213,6 @@ for cfg in "${CONFIGS[@]}"; do
   agg_bytes=$((agg_gb * 1024 * 1024 * 1024))
   per_task_bytes=$((agg_bytes / ntasks))
 
-  if (( ntasks > MAX_TASKS )); then
-    echo "Skipping config: ntasks=${ntasks} > available cores=${MAX_TASKS}: ${cfg}" >&2
-    continue
-  fi
-
   if (( per_task_bytes <= 0 )); then
     echo "Skipping invalid config (aggregate too small): ${cfg}" >&2
     continue
@@ -250,16 +220,9 @@ for cfg in "${CONFIGS[@]}"; do
 
   # Ensure per-task size is at least transfer size.
   tr_bytes="$(bytes_from_size_token "${tr_lc}")"
-  if (( per_task_bytes <= tr_bytes )); then
-    echo "Skipping config where per-task size <= transfer: ${cfg} (per_task_bytes=${per_task_bytes}, tr_bytes=${tr_bytes})" >&2
+  if (( per_task_bytes < tr_bytes )); then
+    echo "Skipping config where per-task size < transfer: ${cfg} (per_task_bytes=${per_task_bytes}, tr_bytes=${tr_bytes})" >&2
     continue
-  fi
-  if (( per_task_bytes % tr_bytes != 0 )); then
-    # Round up to prevent IOR failure:
-    # "ERROR: block size must be a multiple of transfer size, (ior.c:1520)"
-    old_per_task_bytes="${per_task_bytes}"
-    per_task_bytes="$(( ( (per_task_bytes + tr_bytes - 1) / tr_bytes ) * tr_bytes ))"
-    echo "Adjusted per-task size to next multiple of transfer: ${cfg} (old_per_task_bytes=${old_per_task_bytes}, per_task_bytes=${per_task_bytes}, tr_bytes=${tr_bytes})" >&2
   fi
 
   # Keep file naming compatible with existing analysis conventions.
@@ -272,26 +235,17 @@ for cfg in "${CONFIGS[@]}"; do
 
   # Per-config working directory for IOR data files.
   work_dir="${TEST_ROOT}/${STORAGE_TYPE}/${NUM_NODES}n/${base_name}"
-  # mkdir -p "${work_dir}"
-  # When TEST_ROOT lives on node-local storage (e.g. /tmp, /dev/shm), each
-  # compute node has its own independent filesystem there. A plain `mkdir -p`
-  # would only create the directory on the batch host, so ranks landing on
-  # other nodes would fail to open(iorfile.NNNNNNNN) with ENOENT. Use srun
-  # with one task per node to create the directory on every allocated node.
-  set -x
-  srun -N "${NUM_NODES}" --ntasks-per-node=1 mkdir -p "${work_dir}" || echo "mkdir FAILED (rc=$?): ${cfg}" >&2
-  set +x
+  mkdir -p "${work_dir}"
 
   common_flags=(
     -a "${IOR_API}"
-    # -J 4k # This is for HDF5, not for POSIX.
+    -J
     -t "${tr_lc}"
     -b "${per_task_bytes}"
     -s 1
     -F
     -o "${work_dir}/iorfile"
     -N "${ntasks}"
-    -O summaryFormat=JSON
   )
 
   if [[ "${pattern}" == "random" ]]; then
@@ -305,41 +259,17 @@ for cfg in "${CONFIGS[@]}"; do
     json_out="${OUT_DIR}/${base_name}_write.json"
     log_out="${OUT_DIR}/${base_name}_write.log"
     echo "Running WRITE: ${json_out}"
-    set -x
-    srun -N "${NUM_NODES}" -n "${ntasks}" "${IOR_BIN}" "${common_flags[@]}" -w -k "${extra_flags[@]}" > "${json_out}" 2> "${log_out}" || echo "WRITE FAILED (rc=$?): ${cfg}" >&2 # -k is for keep file for the following read.
-    set +x
+    "${IOR_BIN}" "${common_flags[@]}" -w "${extra_flags[@]}" > "${json_out}" 2> "${log_out}"
   fi
 
   if [[ "${RUN_READ}" == "1" ]]; then
     json_out="${OUT_DIR}/${base_name}_read.json"
     log_out="${OUT_DIR}/${base_name}_read.log"
     echo "Running READ: ${json_out}"
-    set -x
-    srun -N "${NUM_NODES}" -n "${ntasks}" "${IOR_BIN}" "${common_flags[@]}" -r "${extra_flags[@]}" > "${json_out}" 2> "${log_out}" || echo "READ FAILED (rc=$?): ${cfg}" >&2
-    set +x
-  fi
-
-  # Per-config cleanup: remove the IOR data files for this config.
-  # On node-local storage (/tmp, /dev/shm), the files live on each node's
-  # own filesystem, so we need srun-on-every-node to remove them everywhere.
-  # On shared storage, this still works (each node redundantly removes the
-  # same shared path; rm -rf is idempotent).
-  # Set CLEANUP_WORKDIR=0 to keep the data files (e.g. when splitting write
-  # and read across separate jobs, or for post-mortem inspection).
-  if [[ "${CLEANUP_WORKDIR:-1}" == "1" ]]; then
-    echo "Cleaning up: ${work_dir}"
-    set -x
-    srun -N "${NUM_NODES}" --ntasks-per-node=1 rm -rf "${work_dir}" || echo "CLEANUP FAILED (rc=$?): ${cfg}" >&2
-    set +x
+    "${IOR_BIN}" "${common_flags[@]}" -r "${extra_flags[@]}" > "${json_out}" 2> "${log_out}"
   fi
 
 done
 
 echo "IOR sweep complete"
-
-TOTAL_TIME_END=$(date +%s.%N)
-TOTAL_TIME_ELAPSED=$(echo "${TOTAL_TIME_END} - ${TOTAL_TIME_START}" | bc -l)
-echo "Total time elapsed: ${TOTAL_TIME_ELAPSED} seconds"
-
-
 
